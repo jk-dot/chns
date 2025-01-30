@@ -5,16 +5,16 @@ Possibly a simulation of a self-propelling droplet governed by the Cahn-Hilliard
 
 
 TODO:
-    **report**
-        - [ ] literature + lit into readme?
 
+**report**
+- [ ] literature + lit into readme?
 
-    **src**
-        - [ ] error estimation and mesh adaptivity
+**src**
+- [ ] error estimation and mesh adaptivity
 
-        - [x] pressure-robust methods
-        - [ ] possible comparison with some normal method like Taylor-Hood
+- [x] pressure-robust methods
+- [ ] possible comparison with some normal method like Taylor-Hood
 
-        - [ ] mesh could be a torus, however start with a rectangle,
+- [ ] mesh could be a torus, however start with a rectangle,
 
-        - [ ] computation usign PETSc parallelization on GPU?
+- [ ] computation usign PETSc parallelization on GPU?

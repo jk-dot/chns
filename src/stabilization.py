@@ -14,7 +14,7 @@ from functools import cached_property
 
 class CahnHilliardNavierStokes:
     def __init__(self):
-        self.file = fd.VTKFile("output/bubbles.pvd")
+        self.file = fd.VTKFile("output/chns.pvd")
         self.theta = 1 # time-evolution param
 
         self.rho1, self.rho2 = 10, 1
@@ -86,12 +86,12 @@ class CahnHilliardNavierStokes:
 
     @cached_property
     def mesh(self):
-        Lx, Ly = 1.0, 2.0
-        nx, ny = 30, 60
+        Lx, Ly = 1.0, 3.0
+        nx, ny = 40, 120
         mesh = RectangleMesh(nx, ny, Lx, Ly, quadrilateral=False)
 
         # barycentric refinement using Alfeld split
-        mesh = refine_bary(mesh)
+        # mesh = refine_bary(mesh)
 
         return mesh
 
@@ -100,10 +100,11 @@ class CahnHilliardNavierStokes:
         # Scott-Vogelius pressure-robust
         k = 2
         V = fd.VectorFunctionSpace(self.mesh, "CG", k)  # Velocity
-        P = fd.FunctionSpace(self.mesh, "DG", k-1)      # Pressure
+        P = fd.FunctionSpace(self.mesh, "CG", k-1)      # Pressure
         Q = M = fd.FunctionSpace(self.mesh, "CG", k)  # Phase field (φ)
+        R = fd.FunctionSpace(self.mesh, 'R', 0)
 
-        return V * P * Q * M  # Mixed function space
+        return V * P * Q * M * R  # Mixed function space
         # return fd.MixedFunctionSpace([V, P, Q, M])
 
     @staticmethod
@@ -170,12 +171,12 @@ class CahnHilliardNavierStokes:
         mesh_coords = self.mesh.coordinates.dat.data_ro
         domain_size = np.ptp(mesh_coords, axis=0)
 
-        radius = 0.1
-        n_bubbles = 10
-        centers = np.random.rand(n_bubbles, len(domain_size)) * domain_size
+        # radius = 0.05
+        # n_bubbles = 42
+        # centers = np.random.rand(n_bubbles, len(domain_size)) * domain_size
 
-        # centers = np.array([[0.4, 0.3], [0.6, 0.8]])
-        # radius = 0.2
+        centers = np.array([[0.4, 0.3], [0.6, 0.8]])
+        radius = 0.2
 
         initial_phase = fd.Constant(0.)
 
@@ -192,22 +193,22 @@ class CahnHilliardNavierStokes:
 
     @cached_property
     def initial_chempot(self):
-        return fd.Function(self.FunctionSpace[3])
+        # return fd.Function(self.FunctionSpace[3])
         # Time evolution seems to converge only when the chemical potential is correctly initialized
-        # phi = self.initial_phase
-        # mu = fd.Function(self.FunctionSpace[3])
-        # nu = fd.TestFunction(self.FunctionSpace[3])
+        phi = self.initial_phase
+        mu = fd.Function(self.FunctionSpace[3])
+        nu = fd.TestFunction(self.FunctionSpace[3])
 
-        # F = (
-        #     fd.inner(mu, nu) - self.epsilon*self.sigma*fd.inner(fd.grad(phi), fd.grad(nu))
-        #      - self.sigma/self.epsilon*fd.inner(self.potential_derivative(phi), nu)
-        # ) * fd.dx
+        F = (
+            fd.inner(mu, nu) - self.epsilon*self.sigma*fd.inner(fd.grad(phi), fd.grad(nu))
+             - self.sigma/self.epsilon*fd.inner(self.potential_derivative(phi), nu)
+        ) * fd.dx
 
-        # problem = fd.NonlinearVariationalProblem(F, mu)
-        # solver = fd.NonlinearVariationalSolver(problem)
-        # solver.solve()
+        problem = fd.NonlinearVariationalProblem(F, mu)
+        solver = fd.NonlinearVariationalSolver(problem)
+        solver.solve()
 
-        # return mu
+        return mu
 
     def initialize(self, *functions):
         initial_conditions = {
@@ -222,16 +223,17 @@ class CahnHilliardNavierStokes:
             func.interpolate(initial_conditions[name])
 
     def run(self):
+        # why can't use w = w_ = fd.Function(self.FunctionSpace)??
         w = fd.Function(self.FunctionSpace)
         w_ = fd.Function(self.FunctionSpace)
 
         self.initialize(*w.subfunctions)
         w_.assign(w)
 
-        u, p, phi, mu = fd.split(w)
-        u_, p_, phi_, mu_ = fd.split(w_)
+        u, p, phi, mu, r = fd.split(w)
+        u_, p_, phi_, mu_, r_ = fd.split(w_)
 
-        v, q, psi, nu = fd.TestFunctions(self.FunctionSpace)
+        v, q, psi, nu, s = fd.TestFunctions(self.FunctionSpace)
 
         # dt = min(
         #     0.25 * self.cell_size,  # CFL condition
@@ -265,7 +267,7 @@ class CahnHilliardNavierStokes:
 
         # possibly not needed since using pressure-robust method
         # R space does not even work with this setting, so....
-        # F += (p * s + r * q) * fd.dx # pressure stabilization
+        F += (p * s + r * q) * fd.dx # pressure stabilization
 
         bcs = [
             fd.DirichletBC(self.FunctionSpace.sub(0), fd.Constant((0, 0)), 'on_boundary')
