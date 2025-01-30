@@ -1,0 +1,39 @@
+\section*{Cahn-Hilliard-Navier-Stokes model}
+
+Governing equations
+\begin{align*}
+    \density \left(\velocity_t + \velocity \cdot \grad{\velocity}\right) - \viscosity \Delta{\velocity} + \grad{\pressure} &= \density \gravity - \phase \grad{\chempot}, \\
+    \div{\velocity} &= 0, \\
+    \phase_t + \velocity \cdot \grad{\phase} &= \div{\left(\mobility \grad{\chempot}\right)}, \\
+    \chempot &= -\varepsilon \sigma \Delta \phase + \frac{\sigma}{\varepsilon} \potential'(\phase).
+\end{align*}
+with zero boundary conditions for velocity $\velocity\big|_{\partial \Omega} = 0$, zero boundary flux of phase $\grad{\phase} \cdot \mathbf{n} \big|_{\partial \Omega}= 0$ and also zero boundary flux of the chemical potential $\mobility(\phase) \grad{\chempot} \cdot \mathbf{n} \big|_{\partial \Omega} = 0$. Initial conditions were predescribes as no velocity $\velocity(t = 0) = \mathbf{0}$ and circular bubble in the bottom half of the rectangle containing a different phase $\phase(t = 0) = \phase_0$.
+
+The degenerate mobility is considered to take the simple form $M(\phase) = M_0 \left(1 - \phase\right)^2 \phase^2$, and the potential is of the same form, ie. $\potential(\phase) = \left(1 - \phase\right)^2 \phase^2$.
+
+We considered the density, viscosity and other quantities depending on the phase to take the form
+\begin{equation*}
+    \density(\phase) = \begin{cases} 
+        \density_1 &, \phase < 0 \\
+        \density_1 + (\density_2 - \density_1) \phase &, 0 \leq \phase \leq 1, \\
+        \density_2 &, \phase > 1.
+                \end{cases}
+\end{equation*}
+
+Boundary conditions were chosen such that most of the terms in the weak formulation zero-out and we are left with this simplistic version
+\begin{align*}
+    &\int_{\Omega} \density \velocity_t \cdot \test{\velocity} + \int_{\Omega} \density \left(\velocity \cdot \grad{\velocity} \right) \cdot \test{\velocity} + \viscosity \grad{\velocity} \mathbf{:} \grad{\test{\velocity}} - \int_{\Omega} \density \gravity \cdot \test{\velocity} + \phase \chempot \div{\test{\velocity}} + \int_{\Omega} \test{\pressure} \div{\velocity} - \pressure \div{\test{\velocity}} \\
+    & + \int_{\Omega} \phase_t \test{\phase} + \int_{\Omega} \left(\velocity \cdot \grad{\phase}\right) \test{\phase} + \int_{\Omega} M \grad{\chempot} \cdot \grad{\test{\phase}} + \int_{\Omega} \chempot \test{\chempot} - \varepsilon \sigma \grad{\phase} \cdot \grad{\test{\chempot}} - \frac{\sigma}{\varepsilon} \potential'(\phase) \test{\chempot} = 0
+\end{align*}
+
+
+For stability reasons, this systems needs to be computed on a mesh with high detail and some backward method, like the backward Euler. The resulting functional renders
+\begin{align*}
+    \int_{\Omega} \frac{\phase_{i + 1} - \phase_i}{\dd{t}} \test{\phase} &+ \int_{\Omega} \left(\theta \density(\phase_{i + 1}) + (1 - \theta) \density(\phase_i)\right) \frac{\velocity_{i+1} - \velocity_i}{\dd{t}} \cdot \test{\velocity} \\
+    &+ \theta\left(F_{\text{phase}} + F_{\text{Navier-Stokes}}\right)\left(\velocity_{i+1}, \pressure_{i+1}, \phase_{i+1}, {\chempot}_{i+1}\right)\\
+    &+ (1 - \theta)\left(F_{\text{phase}} + F_{\text{Navier-Stokes}}\right)\left(\velocity_{i}, \pressure_{i}, \phase_{i}, {\chempot}_{i}\right) \\
+    &+ \int_{\Omega} {\test{\pressure}} \div{\velocity} + \int_{\Omega} \chempot \test{\chempot} - \varepsilon \sigma \grad{\phase} \cdot \grad{\test{\chempot}} - \frac{\sigma}{\varepsilon} \potential'(\phase) \test{\chempot} = 0
+\end{align*}
+
+
+% Additional constraint, a boundary condition is $\partial_{\mathbf{n}} \phase \bigg|_{\partial \Omega} = 0 = \partial_{\mathbf{n}} \chempot \bigg|_{\partial \Omega}$

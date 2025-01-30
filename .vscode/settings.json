@@ -1,0 +1,31 @@
+{
+    "files.exclude": {
+        "*/*.git": true,
+        "*/*.svn": true,
+        "*/*.hg": true,
+        "*/*CVS": true,
+        "*/*.DS_Store": true,
+        "report/graphics/*.tex": true,
+        "report/graphics/*.eps": true,
+        "report/graphics/*converted*.pdf": true,
+        "**/*.aux": true,
+        "**/*.bbl": true,
+        "**/*.blg": true,
+        "**/*.fdb_latexmk": true,
+        "**/*.fls": true,
+        "**/*synctex.gz": true,
+        "**/*.tmp": true,
+        "**/*.out": true,
+        "**/*.xml": true,
+        "**/*.bcf": true,
+        "**/*.log": true,
+        "*/*gnuplottex-*": true,
+        "*/*.gnuploterrors": true,
+        "*/*main.out": true
+    },
+    "git.ignoreLimitWarning": true,
+    "python.analysis.autoImportCompletions": false,
+    "makefile.configureOnOpen": false,
+    "latex-workshop.latex.outDir": "../output",
+    "editor.formatOnSave": true
+}
