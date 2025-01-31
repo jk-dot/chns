@@ -86,8 +86,8 @@ class CahnHilliardNavierStokes:
 
     @cached_property
     def mesh(self):
-        Lx, Ly = 1.0, 2.0
-        nx, ny = 30, 60
+        Lx, Ly = 4.0, 8.0
+        nx, ny = 100, 200
         mesh = RectangleMesh(nx, ny, Lx, Ly, quadrilateral=False)
 
         # barycentric refinement using Alfeld split
@@ -171,7 +171,7 @@ class CahnHilliardNavierStokes:
         domain_size = np.ptp(mesh_coords, axis=0)
 
         radius = 0.1
-        n_bubbles = 10
+        n_bubbles = 42
         centers = np.random.rand(n_bubbles, len(domain_size)) * domain_size
 
         # centers = np.array([[0.4, 0.3], [0.6, 0.8]])
