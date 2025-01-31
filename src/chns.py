@@ -1,6 +1,6 @@
 from tqdm import tqdm, TqdmWarning
 import firedrake as fd
-from firedrake.utility_meshes import PeriodicRectangleMesh
+from firedrake.utility_meshes import PeriodicRectangleMesh, RectangleMesh
 from firedrake.output import VTKFile
 import numpy as np
 
@@ -16,7 +16,7 @@ class CahnHilliardNavierStokes:
         self.rho1, self.rho2 = 10, 1
         self.nu1 = self.nu2 = 1 # paper says should be the same
         self.sigma = 1e-1
-        self.gravity = fd.Constant((0., -1))
+        self.gravity = fd.Constant((0., -9.81))
         self.epsilon = 1e-1 # 4 * self.cell_size
         self.m0 = 1 # mobility factor, needs to compensate the gradient of mu :-/
 
@@ -83,10 +83,10 @@ class CahnHilliardNavierStokes:
 
     @cached_property
     def mesh(self):
-        Lx, Ly = 1.0, 1.0
-        nx, ny = 20, 20
-        mesh = PeriodicRectangleMesh(nx, ny, Lx, Ly, quadrilateral=False)
-        # mesh = RectangleMesh(nx, ny, Lx, Ly, quadrilateral=False)
+        Lx, Ly = 4.0, 8.0
+        nx, ny = 80, 160
+        # mesh = PeriodicRectangleMesh(nx, ny, Lx, Ly, quadrilateral=False)
+        mesh = RectangleMesh(nx, ny, Lx, Ly, quadrilateral=False)
 
         # # barycentric refinement using Alfeld split
         # mesh = refine_bary(mesh)
@@ -98,7 +98,7 @@ class CahnHilliardNavierStokes:
         # Scott-Vogelius pressure-robust
         k = 2
         V = fd.VectorFunctionSpace(self.mesh, "CG", k)  # Velocity
-        P = fd.FunctionSpace(self.mesh, "DG", k-1)      # Pressure
+        P = fd.FunctionSpace(self.mesh, "DG", k-1)      # Pressure, DG for Alfeld
         Q = M = fd.FunctionSpace(self.mesh, "CG", k-1)  # Phase field (φ)
 
         return V * P * Q * M  # Mixed function space
@@ -164,30 +164,31 @@ class CahnHilliardNavierStokes:
     def initial_phase(self):
         coordinates = fd.SpatialCoordinate(self.mesh)
 
-        # mesh_coords = self.mesh.coordinates.dat.data_ro
-        # domain_size = np.ptp(mesh_coords, axis=0)
+        mesh_coords = self.mesh.coordinates.dat.data_ro
+        domain_size = np.ptp(mesh_coords, axis=0)
 
-        # radius = 0.1
-        # n_bubbles = 42
-        # centers = np.random.rand(n_bubbles, len(domain_size)) * domain_size
+        radius = 0.2
+        n_bubbles = 42
 
-        # # centers = np.array([[0.4, 0.3], [0.6, 0.8]])
-        # # radius = 0.2
+        adjusted_domain = domain_size - 2.5*radius
+        centers = np.random.rand(n_bubbles, len(domain_size)) * adjusted_domain + 1.5*radius
 
-        # initial_phase = fd.Constant(0.)
+        # centers = np.array([[0.4, 0.3], [0.6, 0.8]])
+        # radius = 0.2
 
-        # for center in centers:
-        #     diff = [(coordinates[i] - center[i])**2 for i in range(len(coordinates))]
-        #     distance = fd.sqrt(sum(diff))
+        initial_phase = fd.Constant(0.)
 
-        #     initial_phase = fd.max_value(
-        #         initial_phase,
-        #         fd.conditional(distance <= radius, 1. ,0.)
-        #     )
+        for center in centers:
+            diff = [(coordinates[i] - center[i])**2 for i in range(len(coordinates))]
+            distance = fd.sqrt(sum(diff) + 1e-6)
 
+            initial_phase = fd.max_value(
+                initial_phase,
+                fd.conditional(distance <= radius, 1. ,0.)
+            )
 
-        x, y = coordinates
-        initial_phase = 0.3*fd.sin(4*fd.pi*x) * fd.sin(2*fd.pi*y) + 0.1
+        # x, y = coordinates
+        # initial_phase = 0.3*fd.sin(4*fd.pi*x) * fd.sin(2*fd.pi*y) + 0.1
 
         return fd.Function(self.FunctionSpace[2]).interpolate(initial_phase)
 
@@ -262,12 +263,12 @@ class CahnHilliardNavierStokes:
         # R space does not even work with this setting, so....
         # F += (p * s + r * q) * fd.dx # pressure stabilization
 
-        # bcs = [
-        #     fd.DirichletBC(self.FunctionSpace.sub(0), fd.Constant((0, 0)), 'on_boundary')
-        # ]
+        bcs = [
+            fd.DirichletBC(self.FunctionSpace.sub(0), fd.Constant((0, 0)), "on_boundary"),
+        ]
 
         J = fd.derivative(F, w)
-        problem = fd.NonlinearVariationalProblem(F, w, J=J) # , bcs=bcs
+        problem = fd.NonlinearVariationalProblem(F, w, J=J, bcs=bcs)
         solver = fd.NonlinearVariationalSolver(
             problem,
             solver_parameters=self.solver_params
