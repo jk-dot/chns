@@ -1,3 +1,112 @@
+\documentclass{article} %[a4paper,10pt]
+\usepackage[utf8]{inputenc}
+
+\usepackage[english]{babel}
+
+\usepackage{indentfirst}
+\usepackage{multicol}
+\usepackage{bbm, bm}
+\usepackage{amsmath, amssymb}
+% \usepackage{mathrsfs}
+\usepackage{physics}
+% \usepackage{calrsfs}
+\usepackage{mathtools}
+\usepackage{mathpunctspace}
+\usepackage{wrapfig}
+
+
+\usepackage[makeroom]{cancel}
+
+\usepackage{graphicx}  % To include figures
+\usepackage{subcaption}  % To use subfigure or subcaption environments
+
+
+\usepackage{booktabs}
+
+\usepackage{tikz}
+\usepackage{pgfplots}
+\usepackage{pgfplotstable}
+
+\pgfplotsset{
+    every axis plot/.append style={line width=0.5pt}
+}
+
+\usepackage{float}
+\usepackage{hyperref}
+\newfloat{graph}{htbp}{grp}
+\floatname{graph}{Graf}
+
+% Bibtex
+\usepackage[
+    %backend=biber, 
+    natbib=true,
+    style=numeric,
+    sorting=none
+]{biblatex}
+% \usepackage{biblatex} %Imports biblatex package
+\addbibresource{bibliography.bib} %Import the bibliography file
+\usepackage{csquotes}
+
+% \usepackage{algpseudocode}
+\usepackage{algorithm, algorithmic}
+
+\usepackage{xcolor}
+\usepackage{graphicx} % path for gnuplot plots
+\graphicspath{{graphics}}
+\usepackage[top = 1cm, bottom = 1cm, left = 1cm, right = 1cm]{geometry}
+
+\setlength{\textfloatsep}{1pt plus 1.0pt minus 2.0pt}
+
+\title{Cahn-Hilliard-Navier-Stokes model}
+\author{Ján Kovačovský}
+
+
+\pgfplotsset{compat=1.18}
+
+\usepackage{ifthen}
+
+
+\newcommand{\todo}[1]{\textcolor{red}{#1}}
+\newcommand{\note}[1]{\textcolor{blue}{#1}}
+
+
+\newcommand{\velocity}{\mathbf{u}}
+\newcommand{\pressure}{p}
+\newcommand{\phase}{\varphi}
+\newcommand{\chempot}{\mu_{\text{ch}}}
+
+\newcommand{\test}[1]{%
+    \ifthenelse{\equal{#1}{\velocity}}{%
+        \mathbf{v}%
+    }{%
+        \ifthenelse{\equal{#1}{\pressure}}{%
+            q%
+        }{%
+            \ifthenelse{\equal{#1}{\phase}}{%
+                \psi%
+            }{%
+                \ifthenelse{\equal{#1}{\chempot}}{%
+                    \nu_{\text{ch}}%
+                }{%
+                    #1
+                }%
+            }%
+        }%
+    }%
+}
+
+\newcommand{\density}{\hat{\varrho}}
+\newcommand{\viscosity}{\hat{\nu}}
+\newcommand{\mobility}{M}
+
+\newcommand{\gravity}{\mathbf{g}}
+\newcommand{\potential}{\Psi}
+
+% \setcounter{section}{3}
+
+
+\begin{document}
+
 \section*{Cahn-Hilliard-Navier-Stokes model}
 
 Governing equations
@@ -37,3 +146,7 @@ For stability reasons, this systems needs to be computed on a mesh with high det
 
 
 % Additional constraint, a boundary condition is $\partial_{\mathbf{n}} \phase \bigg|_{\partial \Omega} = 0 = \partial_{\mathbf{n}} \chempot \bigg|_{\partial \Omega}$
+
+\printbibliography
+
+\end{document}
