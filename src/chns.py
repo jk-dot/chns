@@ -17,7 +17,7 @@ class CahnHilliardNavierStokes:
         self.nu1 = self.nu2 = 1 # paper says should be the same
         self.sigma = 1e-1
         self.gravity = fd.Constant((0., -9.81))
-        self.epsilon = 1e-1 # 4 * self.cell_size
+        self.epsilon = 1e-1 #4 * self.cell_size
         self.m0 = 1 # mobility factor, needs to compensate the gradient of mu :-/
 
         self.solver_params = {
@@ -44,13 +44,14 @@ class CahnHilliardNavierStokes:
                 "mat_mumps_icntl_14": 500
             },
             "fieldsplit_1": {
-                "ksp_type": "preonly",
-                "pc_type": "lu",
-                "pc_factor_mat_solver_type": "mumps",
-                "pc_factor_shift_type": "nonzero",
+                "ksp_type": "gmres",
+                "pc_type": "hypre",
+                "pc_hypre_type": "boomeramg",
+                "ksp_rtol": 1e-2,  # Looser tolerance for ill-conditioned subsystem
                 "mat_mumps_icntl_14": 500
             },
         }
+
 
     def __str__(self):
         ## TODO: ptp add domain shape & size
@@ -83,8 +84,8 @@ class CahnHilliardNavierStokes:
 
     @cached_property
     def mesh(self):
-        Lx, Ly = 4.0, 8.0
-        nx, ny = 80, 160
+        Lx, Ly = 1.0, 1.0
+        nx, ny = 10, 10
         # mesh = PeriodicRectangleMesh(nx, ny, Lx, Ly, quadrilateral=False)
         mesh = RectangleMesh(nx, ny, Lx, Ly, quadrilateral=False)
 
@@ -98,7 +99,7 @@ class CahnHilliardNavierStokes:
         # Scott-Vogelius pressure-robust
         k = 2
         V = fd.VectorFunctionSpace(self.mesh, "CG", k)  # Velocity
-        P = fd.FunctionSpace(self.mesh, "DG", k-1)      # Pressure, DG for Alfeld
+        P = fd.FunctionSpace(self.mesh, "CG", k-1)      # Pressure, DG for Alfeld
         Q = M = fd.FunctionSpace(self.mesh, "CG", k-1)  # Phase field (φ)
 
         return V * P * Q * M  # Mixed function space
@@ -113,15 +114,16 @@ class CahnHilliardNavierStokes:
         return 2 * x * (1 - x) * (1 - 2 * x)
 
     def density(self, phase):
-        return self.rho1 + (self.rho2 - self.rho1) * phase
-        # return fd.conditional(
-        #     phase < 0,
-        #     self.rho1,
-        #     fd.conditional(
-        #         phase > 1, 
-        #         self.rho2, 
-        #         self.rho1 + phase*(self.rho2 - self.rho1))
-        # )
+        # return self.rho1 + (self.rho2 - self.rho1) * 0.5 * (1 + fd.tanh(phase / 0.05))
+        # return self.rho1 + (self.rho2 - self.rho1) * phase
+        return fd.conditional(
+            phase < 0,
+            self.rho1,
+            fd.conditional(
+                phase > 1, 
+                self.rho2, 
+                self.rho1 + phase*(self.rho2 - self.rho1))
+        )
 
     def mobility(self, phase):
         return self.m0 * self.potential(phase) + 1e-3
@@ -164,52 +166,58 @@ class CahnHilliardNavierStokes:
     def initial_phase(self):
         coordinates = fd.SpatialCoordinate(self.mesh)
 
-        mesh_coords = self.mesh.coordinates.dat.data_ro
-        domain_size = np.ptp(mesh_coords, axis=0)
+        # mesh_coords = self.mesh.coordinates.dat.data_ro
+        # domain_size = np.ptp(mesh_coords, axis=0)
 
-        radius = 0.2
-        n_bubbles = 42
+        # radius = 0.1
+        # n_bubbles = 42
 
-        adjusted_domain = domain_size - 2.5*radius
-        centers = np.random.rand(n_bubbles, len(domain_size)) * adjusted_domain + 1.5*radius
+        # adjusted_domain = domain_size - 2.5*radius
+        # centers = np.random.rand(n_bubbles, len(domain_size)) * adjusted_domain + 1.5*radius
 
-        # centers = np.array([[0.4, 0.3], [0.6, 0.8]])
-        # radius = 0.2
+        # # centers = np.array([[0.4, 0.3], [0.6, 0.8]])
+        # # radius = 0.2
 
-        initial_phase = fd.Constant(0.)
+        # initial_phase = fd.Constant(0.)
 
-        for center in centers:
-            diff = [(coordinates[i] - center[i])**2 for i in range(len(coordinates))]
-            distance = fd.sqrt(sum(diff) + 1e-6)
+        # for center in centers:
+        #     diff = [(coordinates[i] - center[i])**2 for i in range(len(coordinates))]
+        #     distance = fd.sqrt(sum(diff) + 1e-6)
 
-            initial_phase = fd.max_value(
-                initial_phase,
-                fd.conditional(distance <= radius, 1. ,0.)
-            )
+        #     initial_phase = fd.max_value(
+        #         initial_phase,
+        #         fd.conditional(distance <= radius, 1. ,0.)
+        #     )
 
-        # x, y = coordinates
-        # initial_phase = 0.3*fd.sin(4*fd.pi*x) * fd.sin(2*fd.pi*y) + 0.1
+        x, y = coordinates
+        initial_phase = 0.3*fd.sin(4*fd.pi*x) * fd.sin(2*fd.pi*y) + 0.1
 
         return fd.Function(self.FunctionSpace[2]).interpolate(initial_phase)
 
     @cached_property
     def initial_chempot(self):
-        return fd.Function(self.FunctionSpace[3])
+        # return fd.Function(self.FunctionSpace[3])
         # Time evolution seems to converge only when the chemical potential is correctly initialized
-        # phi = self.initial_phase
-        # mu = fd.Function(self.FunctionSpace[3])
-        # nu = fd.TestFunction(self.FunctionSpace[3])
+        phi = self.initial_phase
+        mu = fd.Function(self.FunctionSpace[3])
+        nu = fd.TestFunction(self.FunctionSpace[3])
 
-        # F = (
-        #     fd.inner(mu, nu) - self.epsilon*self.sigma*fd.inner(fd.grad(phi), fd.grad(nu))
-        #      - self.sigma/self.epsilon*fd.inner(self.potential_derivative(phi), nu)
-        # ) * fd.dx
+        F = (
+            fd.inner(mu, nu) - self.epsilon*self.sigma*fd.inner(fd.grad(phi), fd.grad(nu))
+             - self.sigma/self.epsilon*fd.inner(self.potential_derivative(phi), nu)
+        ) * fd.dx
 
-        # problem = fd.NonlinearVariationalProblem(F, mu)
-        # solver = fd.NonlinearVariationalSolver(problem)
-        # solver.solve()
+        problem = fd.NonlinearVariationalProblem(F, mu)
+        solver = fd.NonlinearVariationalSolver(problem, solver_parameters={
+                                                            "snes_type": "newtonls",
+                                                            "snes_rtol": 1e-6,
+                                                            "snes_atol": 1e-6,
+                                                            "ksp_type": "preonly",
+                                                            "pc_type": "lu"
+                                                        })
+        solver.solve()
 
-        # return mu
+        return mu
 
     def initialize(self, *functions):
         initial_conditions = {
@@ -257,11 +265,12 @@ class CahnHilliardNavierStokes:
             + self.theta * momentum(u, p, phi, mu) + self.theta * phase(u, p, phi, mu)
             + (1 - self.theta) * momentum(u_, p_, phi_, mu_) + (1 - self.theta) * phase(u_, p_, phi_, mu_)
             + q * fd.div(u) + fd.inner(mu, nu) - self.epsilon*self.sigma*fd.inner(fd.grad(phi), fd.grad(nu)) - self.sigma/self.epsilon*fd.inner(self.potential_derivative(phi), nu)
-        ) * fd.dx
+        ) * fd.dx() # fd.dx(degree=6)
 
         # possibly not needed since using pressure-robust method
         # R space does not even work with this setting, so....
         # F += (p * s + r * q) * fd.dx # pressure stabilization
+        # F += 0.1 * fd.div(u) * fd.div(v) * fd.dx # stabilization ?
 
         bcs = [
             fd.DirichletBC(self.FunctionSpace.sub(0), fd.Constant((0, 0)), "on_boundary"),
@@ -277,12 +286,13 @@ class CahnHilliardNavierStokes:
         with tqdm(
             total=total_time, desc="Time Evolution", unit="s", dynamic_ncols=True, bar_format="{l_bar}{bar}| {n:.0e}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}{postfix}]") as pbar:
             t = 0.0
-            
+
             for step in range(n):
                 solver.solve()
                 w_.assign(w)
 
-                self.file.write(*w.subfunctions, time=t)
+                if step % 5 == 0:
+                    self.file.write(*w.subfunctions, time=t)
 
                 # Get solver convergence information
                 snes = solver.snes

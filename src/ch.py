@@ -6,6 +6,12 @@ import numpy as np
 from functools import cached_property
 from mpi4py import MPI  # Import MPI
 
+from queue import deque
+
+from firedrake.pyplot import tricontourf, triplot
+import matplotlib.pyplot as plt
+plt.style.use('./src/presentation.mplstyle')
+
 
 class CahnHilliard:
     def __init__(self):
@@ -140,6 +146,20 @@ class CahnHilliard:
             func.rename(name)
             func.interpolate(initial_conditions[name])
 
+    def plot(self, fn, time):
+        fig, axes = plt.subplots()
+        levels = np.linspace(fn.dat.data.min(), fn.dat.data.max(), 200)
+
+        contours = tricontourf(fn, levels=levels, axes=axes)
+        
+        axes.set_aspect("equal")
+        # fig.colorbar(contours)
+        plt.xticks([]); plt.yticks([])
+        for c in axes.collections:
+            c.set_edgecolor("face")
+        # plt.gca().set_aspect('equal')
+        plt.savefig(f"output/ch-t{time}.pdf", bbox_inches="tight")
+
     def run(self):
         w = fd.Function(self.FunctionSpace)
         w_ = fd.Function(self.FunctionSpace)
@@ -153,7 +173,7 @@ class CahnHilliard:
         psi, nu = fd.TestFunctions(self.FunctionSpace)
 
         dt = 5e-3
-        n = 2000
+        n = 1000
         total_time = n * dt
 
         phase = lambda phi, mu: (
@@ -173,6 +193,8 @@ class CahnHilliard:
             problem,
             solver_parameters=self.solver_params
         )
+
+        snapshots = deque([0, 0.5, 1., 1.5, 2, 2.5, 3, 4])
 
         with tqdm(
             total=total_time, desc="Time Evolution", unit="s", dynamic_ncols=True, bar_format="{l_bar}{bar}| {n:.0e}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}{postfix}]") as pbar:
@@ -197,6 +219,11 @@ class CahnHilliard:
 
                 pbar.update(dt)
                 pbar.set_postfix_str(f"t={t:.0e}")
+
+                for time in snapshots:
+                    if time - dt/2 < t < time + dt/2:
+                        self.plot(w.subfunctions[0], time=time)
+                        snapshots.popleft(); break
 
         # maybe return something about convergence
         # return self
@@ -395,7 +422,7 @@ class CahnHilliardParallel:
 
 
 if __name__ == '__main__':
-    model = CahnHilliardParallel()
+    model = CahnHilliard()
 
     if MPI.COMM_WORLD.Get_rank() == 0:
         print(model)
